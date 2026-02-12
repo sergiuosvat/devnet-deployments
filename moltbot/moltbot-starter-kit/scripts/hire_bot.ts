@@ -139,7 +139,7 @@ async function submitReputation(
     signer: UserSigner,
     sender: string,
 ): Promise<void> {
-    log(`⭐ Submitting ${rating}-star review for Agent #${agentNonce}...`);
+    log(`⭐ Submitting rating of ${rating} for Agent #${agentNonce}...`);
     const registry = new Address(CONFIG.ADDRESSES.REPUTATION_REGISTRY);
     const senderAddr = new Address(sender);
 
@@ -260,10 +260,11 @@ async function main() {
     await waitForJobVerification(preparation.jobId);
 
     // 5. Submit Review
+    const randomRating = Math.floor(Math.random() * (100 - 80 + 1)) + 80;
     await submitReputation(
         preparation.jobId,
         agentNonce,
-        5, // 5-star rating
+        randomRating,
         provider,
         signer,
         employerAddr,
