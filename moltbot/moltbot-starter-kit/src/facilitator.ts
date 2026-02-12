@@ -1,6 +1,6 @@
 import axios from 'axios';
-import {CONFIG} from './config';
-import {Logger} from './utils/logger';
+import { CONFIG } from './config';
+import { Logger } from './utils/logger';
 
 export interface PaymentEvent {
   amount: string;
@@ -59,6 +59,7 @@ export class Facilitator {
     serviceId: string;
     employerAddress: string;
     jobId?: string;
+    payload?: string;
   }) {
     const res = await axios.post(`${this.facilitatorUrl}/prepare`, request);
     return res.data;

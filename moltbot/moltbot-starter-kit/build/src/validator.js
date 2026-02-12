@@ -81,7 +81,7 @@ class Validator {
             contract: receiver,
             function: 'submit_proof',
             gasLimit: BigInt(config_1.CONFIG.GAS_LIMITS.SUBMIT_PROOF),
-            arguments: [Buffer.from(jobId), Buffer.from(resultHash, 'hex')],
+            arguments: [Buffer.from(jobId, 'hex'), Buffer.from(resultHash, 'hex')],
         });
         tx.nonce = BigInt(account.nonce); // Override with fetched nonce
         // 4. Relayer or Direct?

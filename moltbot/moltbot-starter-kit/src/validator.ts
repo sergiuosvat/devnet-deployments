@@ -1,20 +1,20 @@
-import {UserSigner} from '@multiversx/sdk-wallet';
+import { UserSigner } from '@multiversx/sdk-wallet';
 import {
   Address,
   TransactionComputer,
   VariadicValue,
 } from '@multiversx/sdk-core';
-import {ApiNetworkProvider} from '@multiversx/sdk-network-providers';
+import { ApiNetworkProvider } from '@multiversx/sdk-network-providers';
 import axios from 'axios';
-import {promises as fs} from 'fs';
+import { promises as fs } from 'fs';
 import * as path from 'path';
-import {CONFIG} from './config';
+import { CONFIG } from './config';
 import * as identityAbiJson from './abis/identity-registry.abi.json';
 import * as validationAbiJson from './abis/validation-registry.abi.json';
-import {Logger} from './utils/logger';
-import {PoWSolver} from './pow';
-import {createEntrypoint} from './utils/entrypoint';
-import {createPatchedAbi} from './utils/abi';
+import { Logger } from './utils/logger';
+import { PoWSolver } from './pow';
+import { createEntrypoint } from './utils/entrypoint';
+import { createPatchedAbi } from './utils/abi';
 
 export class Validator {
   private logger = new Logger('Validator');
@@ -43,7 +43,7 @@ export class Validator {
 
     // 2. Fetch Account State (Nonce) with Timeout
     const account = await this.withTimeout(
-      provider.getAccount({bech32: () => senderAddress.toBech32()}),
+      provider.getAccount({ bech32: () => senderAddress.toBech32() }),
       'Fetching Account',
     );
 
@@ -59,7 +59,7 @@ export class Validator {
       contract: receiver,
       function: 'submit_proof',
       gasLimit: BigInt(CONFIG.GAS_LIMITS.SUBMIT_PROOF),
-      arguments: [Buffer.from(jobId), Buffer.from(resultHash, 'hex')],
+      arguments: [Buffer.from(jobId, 'hex'), Buffer.from(resultHash, 'hex')],
     });
 
     tx.nonce = BigInt(account.nonce); // Override with fetched nonce
@@ -90,8 +90,8 @@ export class Validator {
           this.logger.info(`Sending to Relayer Service: ${this.relayerUrl}`);
           const relayRes = await axios.post(
             `${this.relayerUrl}/relay`,
-            {transaction: tx.toPlainObject()},
-            {timeout: CONFIG.REQUEST_TIMEOUT},
+            { transaction: tx.toPlainObject() },
+            { timeout: CONFIG.REQUEST_TIMEOUT },
           );
           txHash = relayRes.data.txHash;
         } else {
@@ -106,7 +106,7 @@ export class Validator {
         return txHash;
       } catch (e: unknown) {
         const err = e as {
-          response?: {data?: {error?: string}; status?: number};
+          response?: { data?: { error?: string }; status?: number };
           message?: string;
         };
         const msg = err.response?.data?.error || err.message;
@@ -241,7 +241,7 @@ export class Validator {
       );
       return tx.status.toString().toLowerCase();
     } catch (e: unknown) {
-      const err = e as {response?: {status?: number}; message?: string};
+      const err = e as { response?: { status?: number }; message?: string };
       // Handle 404 as 'not_found'
       if (err.response?.status === 404 || err.message?.includes('404')) {
         return 'not_found';

@@ -36,4 +36,8 @@ export declare const CONFIG: {
         PEM_PATH: string;
         ADDRESS: string;
     };
+    AI: {
+        OPENAI_API_KEY: string;
+        MODEL: string;
+    };
 };

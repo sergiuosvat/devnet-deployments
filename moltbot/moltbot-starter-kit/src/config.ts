@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 
 // Load .env from root
-dotenv.config({path: path.resolve(__dirname, '../.env')});
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 export const CONFIG = {
   // Network
@@ -16,12 +16,15 @@ export const CONFIG = {
   // Addresses
   ADDRESSES: {
     IDENTITY_REGISTRY:
+      process.env.MULTIVERSX_IDENTITY_REGISTRY ||
       process.env.IDENTITY_REGISTRY_ADDRESS ||
       'erd1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6gq4hu',
     VALIDATION_REGISTRY:
+      process.env.MULTIVERSX_VALIDATION_REGISTRY ||
       process.env.VALIDATION_REGISTRY_ADDRESS ||
       'erd1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6gq4hu',
     REPUTATION_REGISTRY:
+      process.env.MULTIVERSX_REPUTATION_REGISTRY ||
       process.env.REPUTATION_REGISTRY_ADDRESS ||
       'erd1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6gq4hu',
   },
@@ -36,7 +39,7 @@ export const CONFIG = {
 
   // Transaction Settings
   GAS_LIMITS: {
-    REGISTER: 10_000_000n,
+    REGISTER: 20_000_000n,
     UPDATE: 10_000_000n,
     SUBMIT_PROOF: 10_000_000n,
     REGISTER_AGENT: BigInt(process.env.GAS_LIMIT_REGISTER_AGENT || '6000000'),
@@ -78,5 +81,10 @@ export const CONFIG = {
   EMPLOYER: {
     PEM_PATH: process.env.EMPLOYER_PEM_PATH || '',
     ADDRESS: process.env.EMPLOYER_ADDRESS || '',
+  },
+  // AI Solver Settings
+  AI: {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+    MODEL: process.env.OPENAI_MODEL || 'gpt-4o-2024-08-06',
   },
 };

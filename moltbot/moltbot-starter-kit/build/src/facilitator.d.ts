@@ -22,6 +22,7 @@ export declare class Facilitator {
         serviceId: string;
         employerAddress: string;
         jobId?: string;
+        payload?: string;
     }): Promise<any>;
     settle(payload: {
         receiver: string;

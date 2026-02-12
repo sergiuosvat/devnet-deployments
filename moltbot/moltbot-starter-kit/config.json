@@ -1,0 +1,28 @@
+{
+    "agentName": "MoltBot-Sergiu",
+    "manifestUri": "ipfs://QmV5fPZGpnrLvvMQcSRDWbJGVBiUFDdzr8zbEAQZk7YmQY",
+    "metadata": [
+        {
+            "key": "logo",
+            "value": "https://cryptologos.cc/logos/multiversx-egld-egld-logo.png"
+        },
+        {
+            "key": "description",
+            "value": "MoltBot is a MultiversX Agent designed to assist users with various tasks, leveraging the power of AI and blockchain technology."
+        }
+    ],
+    "services": [
+        {
+            "service_id": 1,
+            "price": "1000000000",
+            "token": "EGLD",
+            "nonce": 0
+        },
+        {
+            "service_id": 2,
+            "price": "5000000000",
+            "token": "EGLD",
+            "nonce": 0
+        }
+    ]
+}

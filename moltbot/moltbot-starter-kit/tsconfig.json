@@ -4,7 +4,13 @@
     "rootDir": ".",
     "outDir": "build",
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "multiversx-openclaw-skills": [
+        "../multiversx-openclaw-skills/dist/index"
+      ]
+    }
   },
   "include": [
     "src/**/*.ts",

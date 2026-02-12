@@ -37,38 +37,100 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.JobProcessor = void 0;
-const axios_1 = __importDefault(require("axios"));
+const openai_1 = __importDefault(require("openai"));
 const crypto = __importStar(require("crypto"));
 const config_1 = require("./config");
 const logger_1 = require("./utils/logger");
+const skill_manager_1 = require("./skills/skill_manager");
 class JobProcessor {
     logger = new logger_1.Logger('JobProcessor');
+    openai;
+    skillManager;
+    constructor() {
+        this.openai = new openai_1.default({
+            apiKey: config_1.CONFIG.AI.OPENAI_API_KEY,
+        });
+        this.skillManager = new skill_manager_1.SkillManager();
+    }
     async process(job) {
-        let content = job.payload;
-        if (job.isUrl || job.payload.startsWith('http')) {
-            // SSRF Protection
-            const url = new URL(job.payload);
-            const isAllowed = config_1.CONFIG.SECURITY.ALLOWED_DOMAINS.some(domain => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
-            if (!isAllowed) {
-                throw new Error(`Domain not allowed: ${url.hostname}`);
-            }
-            try {
-                this.logger.info(`Fetching job data from ${job.payload}...`);
-                const res = await axios_1.default.get(job.payload, {
-                    timeout: config_1.CONFIG.REQUEST_TIMEOUT,
+        this.logger.info(`Processing job: ${job.payload}`);
+        /**
+         * HOW INSTRUCTIONS REACH THE AI:
+         * 1. System Prompt: These are the "standing orders". The AI reads this first.
+         *    It defines the identity, the rules, and the priority.
+         * 2. User Message: This is the specific "Job Payload" (what the employer wants).
+         *
+         * The AI combines both. If the System Prompt says "Check address first",
+         * the AI will do that BEFORE looking at the Payload.
+         */
+        const messages = [
+            {
+                role: 'system',
+                content: `You are an autonomous MultiversX agent. Your goal is to solve the user's job using the available tools (skills).
+        
+        When you have completed the task, provide a final answer describing what you did and the result.
+        Always conclude by submitting proof of your work using 'multiversx_prove' skill if a jobId is available.`,
+            },
+            {
+                role: 'user',
+                content: `Job Payload: ${job.payload}`,
+            },
+        ];
+        try {
+            let runCount = 0;
+            const MAX_RUNS = 10;
+            while (runCount < MAX_RUNS) {
+                const response = await this.openai.chat.completions.create({
+                    model: config_1.CONFIG.AI.MODEL,
+                    messages: messages,
+                    tools: this.skillManager.tools,
+                    tool_choice: 'auto',
                 });
-                content =
-                    typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+                const responseMessage = response.choices[0].message;
+                messages.push(responseMessage);
+                if (responseMessage.content) {
+                    this.logger.info(`AI reasoning: ${responseMessage.content}`);
+                }
+                if (responseMessage.tool_calls) {
+                    for (const toolCall of responseMessage.tool_calls) {
+                        const toolName = toolCall.function.name;
+                        const toolArgs = JSON.parse(toolCall.function.arguments);
+                        this.logger.info(`AI calling skill: ${toolName}`, toolArgs);
+                        try {
+                            const result = await this.skillManager.execute(toolName, toolArgs);
+                            this.logger.info(`Skill ${toolName} result:`, result);
+                            messages.push({
+                                tool_call_id: toolCall.id,
+                                role: 'tool',
+                                name: toolName,
+                                content: JSON.stringify(result),
+                            });
+                        }
+                        catch (error) {
+                            this.logger.error(`Error executing skill ${toolName}:`, error);
+                            messages.push({
+                                tool_call_id: toolCall.id,
+                                role: 'tool',
+                                name: toolName,
+                                content: JSON.stringify({ error: error.message }),
+                            });
+                        }
+                    }
+                    runCount++;
+                    continue;
+                }
+                // No more tool calls, return final content
+                const finalContent = responseMessage.content || 'Job completed.';
+                this.logger.info(`Job completed with result: ${finalContent}`);
+                // Return hash of the final content as the proof result
+                return crypto.createHash('sha256').update(finalContent).digest('hex');
             }
-            catch (e) {
-                // Propagate error if it's the domain check, otherwise logging warning approach for availability
-                if (e.message.includes('Domain not allowed'))
-                    throw e;
-                this.logger.warn('Failed to fetch URL, using raw payload');
-            }
+            throw new Error('Exceeded maximum number of LLM runs');
         }
-        // Hash computation (SHA256)
-        return crypto.createHash('sha256').update(content).digest('hex');
+        catch (error) {
+            this.logger.error('Error in LLM processing:', error);
+            throw error;
+        }
     }
 }
 exports.JobProcessor = JobProcessor;

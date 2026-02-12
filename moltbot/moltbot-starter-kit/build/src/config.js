@@ -46,11 +46,14 @@ exports.CONFIG = {
         'https://devnet-explorer.multiversx.com',
     // Addresses
     ADDRESSES: {
-        IDENTITY_REGISTRY: process.env.IDENTITY_REGISTRY_ADDRESS ||
+        IDENTITY_REGISTRY: process.env.MULTIVERSX_IDENTITY_REGISTRY ||
+            process.env.IDENTITY_REGISTRY_ADDRESS ||
             'erd1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6gq4hu',
-        VALIDATION_REGISTRY: process.env.VALIDATION_REGISTRY_ADDRESS ||
+        VALIDATION_REGISTRY: process.env.MULTIVERSX_VALIDATION_REGISTRY ||
+            process.env.VALIDATION_REGISTRY_ADDRESS ||
             'erd1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6gq4hu',
-        REPUTATION_REGISTRY: process.env.REPUTATION_REGISTRY_ADDRESS ||
+        REPUTATION_REGISTRY: process.env.MULTIVERSX_REPUTATION_REGISTRY ||
+            process.env.REPUTATION_REGISTRY_ADDRESS ||
             'erd1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6gq4hu',
     },
     // External Services
@@ -61,7 +64,7 @@ exports.CONFIG = {
     },
     // Transaction Settings
     GAS_LIMITS: {
-        REGISTER: 10000000n,
+        REGISTER: 20000000n,
         UPDATE: 10000000n,
         SUBMIT_PROOF: 10000000n,
         REGISTER_AGENT: BigInt(process.env.GAS_LIMIT_REGISTER_AGENT || '6000000'),
@@ -92,6 +95,11 @@ exports.CONFIG = {
     EMPLOYER: {
         PEM_PATH: process.env.EMPLOYER_PEM_PATH || '',
         ADDRESS: process.env.EMPLOYER_ADDRESS || '',
+    },
+    // AI Solver Settings
+    AI: {
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+        MODEL: process.env.OPENAI_MODEL || 'gpt-4o-2024-08-06',
     },
 };
 //# sourceMappingURL=config.js.map

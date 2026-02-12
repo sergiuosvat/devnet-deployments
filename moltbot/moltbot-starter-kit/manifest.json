@@ -1,0 +1,21 @@
+{
+  "name": "MoltBot-Sergiu",
+  "version": "1.0.0",
+  "description": "MoltBot is a MultiversX Agent designed to assist users with various tasks, leveraging the power of AI and blockchain technology.",
+  "publicKey": "0xc8a626c83650239478f4d1e0767cac4d865b7644fadbe22b772bd0b46f7a9a43",
+  "capabilities": [
+    "research",
+    "analysis",
+    "code-generation"
+  ],
+  "protocols": [
+    "ACP",
+    "x402",
+    "UCP",
+    "MCP"
+  ],
+  "contact": {
+    "url": "https://moltbot.io",
+    "email": "agent@example.com"
+  }
+}

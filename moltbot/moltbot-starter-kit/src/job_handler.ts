@@ -1,8 +1,8 @@
-import {Validator} from './validator';
-import {JobProcessor} from './processor';
-import {PaymentEvent} from './facilitator';
-import {CONFIG} from './config';
-import {Logger} from './utils/logger';
+import { Validator } from './validator';
+import { JobProcessor } from './processor';
+import { PaymentEvent } from './facilitator';
+import { CONFIG } from './config';
+import { Logger } from './utils/logger';
 
 export class JobHandler {
   private logger = new Logger('JobHandler');
@@ -10,7 +10,7 @@ export class JobHandler {
   constructor(
     private validator: Validator,
     private processor: JobProcessor,
-  ) {}
+  ) { }
 
   async handle(jobId: string, payment: PaymentEvent) {
     this.logger.info(`Starting handler for ${jobId}`);

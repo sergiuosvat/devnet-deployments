@@ -230,5 +230,15 @@
       "relayerAddress": "erd1k0j80juve82hu3lfkz3rawplt829llue8zynp5yzr7a42t22pewqufvxwy",
       "timestamp": 1770806801088
     }
+  },
+  "http://localhost:3001": {
+    "erd1eznzdjpk2q3eg78568s8vl9vfkr9kajyltd7y2mh90gtgmm6nfps63566r": {
+      "relayerAddress": "erd1t7knzc95d599em22eq94fwumc6hezfp3xhemqppxqmudx3hdlzmszclf68",
+      "timestamp": 1770820439919
+    },
+    "erd1x7qv950elq7w5dhuxx5tgrgp6um6spyc6slze53ha9yehgt7xa8qvxyj6z": {
+      "relayerAddress": "erd1fggp5ru0jhcjrp5rjqyqrnvhr3sz3v2e0fm3ktknvlg7mcyan54qzccnan",
+      "timestamp": 1770822568289
+    }
   }
 }
