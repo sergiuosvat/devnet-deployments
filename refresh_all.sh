@@ -6,12 +6,13 @@ REPOS=(
     "multiversx-mcp-server"
     "multiversx-openclaw-relayer"
     "x402-facilitator"
-    "moltbot/moltbot-starter-kit"
-    "moltbot/multiversx-openclaw-skills"
+    "mx-agentic-commerce-tests"
     "mx-8004"
+    "moltbot/multiversx-openclaw-skills"
+    "moltbot/moltbot-starter-kit"
 )
 
-echo "🔄 Refreshing all repositories..."
+echo "🔄 Refreshing all subtrees..."
 echo "================================="
 
 for repo in "${REPOS[@]}"; do
@@ -25,18 +26,31 @@ for repo in "${REPOS[@]}"; do
     echo ""
     echo "📦 Processing: $repo"
     echo "-----------------------------------"
+    
+    # Determine remote and branch
+    case "$repo" in
+        "multiversx-mcp-server")          REMOTE="remote-mcp"; BRANCH="master" ;;
+        "multiversx-openclaw-relayer")    REMOTE="remote-relayer"; BRANCH="main" ;;
+        "x402-facilitator")               REMOTE="remote-facilitator"; BRANCH="main" ;;
+        "mx-agentic-commerce-tests")      REMOTE="remote-tests"; BRANCH="master" ;;
+        "mx-8004")                        REMOTE="remote-8004"; BRANCH="master" ;;
+        "moltbot/multiversx-openclaw-skills") REMOTE="remote-skills"; BRANCH="master" ;;
+        "moltbot/moltbot-starter-kit")    REMOTE="remote-starter"; BRANCH="master" ;;
+        *) echo "❌ Unknown remote for $repo"; continue ;;
+    esac
+
+    # Git operations (run from root)
+    cd "$BASE_DIR"
+    echo "  ⬇️  Updating subtree from $REMOTE/$BRANCH..."
+    # Always pull with squash to keep history clean in the parent repo
+    git subtree pull --prefix="$repo" "$REMOTE" "$BRANCH" --squash -m "update subtree: $repo from $REMOTE/$BRANCH"
+
+    # Go into directory for dependencies and build
     cd "$REPO_PATH"
     
-    # Git operations
-    echo "  ⬇️  Fetching..."
-    git fetch --all
-    
-    echo "  🔀 Pulling..."
-    git pull
-    
-    # Skip install and build for mx-8004
-    if [ "$repo" == "mx-8004" ]; then
-        echo "  ⏭️  Skipping install and build for mx-8004"
+    # Skip install and build for mx-8004 and mx-agentic-commerce-tests (unless needed)
+    if [[ "$repo" == "mx-8004" || "$repo" == "mx-agentic-commerce-tests" ]]; then
+        echo "  ⏭️  Skipping install and build for $repo"
         echo "  ✅ Done with $repo"
         continue
     fi
@@ -96,4 +110,4 @@ echo "================================="
 pm2 status
 
 echo ""
-echo "✅ All repositories refreshed and services restarted!"
+echo "✅ All subtrees refreshed and services restarted!"
