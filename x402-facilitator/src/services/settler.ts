@@ -191,7 +191,7 @@ export class Settler {
             const parts = data.split('@');
             if (parts.length >= 2 && (parts[0] === 'init_job_with_payment' || parts[0] === 'init_job')) {
                 const jobIdHex = parts[1];
-                return Buffer.from(jobIdHex, 'hex').toString('utf8');
+                return jobIdHex;
             }
         } catch {
             // Ignore parsing errors

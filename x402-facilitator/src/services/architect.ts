@@ -1,4 +1,4 @@
-import { Address, Abi, DevnetEntrypoint, SmartContractController } from '@multiversx/sdk-core';
+import { Address, Abi, DevnetEntrypoint, SmartContractController, BytesValue } from '@multiversx/sdk-core';
 import { config } from '../config.js';
 import { pino } from 'pino';
 import crypto from 'crypto';
@@ -27,9 +27,9 @@ export interface PrepareResponse {
 }
 
 interface AgentServiceConfig {
-    token: { identifier: string; nonce?: number };
-    pnonce: number;
-    price: bigint;
+    token_identifier: { toString(): string };
+    token_nonce: bigint;
+    amount: bigint;
 }
 
 export class Architect {
@@ -117,19 +117,18 @@ export class Architect {
         const configResults = await this.identityController.query({
             contract: registryAddr,
             function: 'get_agent_service_config',
-            arguments: [nonce, Buffer.from(serviceId)],
+            arguments: [nonce, Number(serviceId)],
         });
 
         const owner: string = (ownerResults[0] as Address).toBech32();
         const serviceConfig = configResults[0] as AgentServiceConfig | undefined;
-
-        const price = serviceConfig?.price?.toString() ?? '0';
+        const price = serviceConfig?.amount?.toString() ?? '0';
 
         let token = 'EGLD';
-        if (serviceConfig?.token?.identifier) {
-            token = serviceConfig.token.identifier.toString();
+        if (serviceConfig?.token_identifier) {
+            token = serviceConfig.token_identifier.toString();
         }
-        const pnonce = Number(serviceConfig?.pnonce ?? 0);
+        const pnonce = Number(serviceConfig?.token_nonce ?? 0);
 
         if (!owner) {
             throw new Error(`Failed to fetch agent owner from registry for nonce ${nonce}`);
@@ -154,12 +153,12 @@ export class Architect {
 
         // Use the factory to create a transaction, then extract the data field
         const tx = await factory.createTransactionForExecute(
-            new Address(Buffer.alloc(32)), // Placeholder sender
+            new Address(new Uint8Array(32)), // Placeholder sender
             {
                 contract: validationAddr,
                 function: 'init_job',
                 arguments: [
-                    Buffer.from(jobId),
+                    BytesValue.fromHex(jobId),
                     BigInt(nonce),
                     Number(serviceId),
                 ],
