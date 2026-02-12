@@ -15,18 +15,16 @@ REPOS=(
 echo "🔄 Refreshing all subtrees..."
 echo "================================="
 
+# --- Phase 1: Git Updates ---
+echo "📡 Phase 1: Fetching and pulling updates..."
+cd "$BASE_DIR"
+
 for repo in "${REPOS[@]}"; do
-    REPO_PATH="$BASE_DIR/$repo"
-    
-    if [ ! -d "$REPO_PATH" ]; then
-        echo "⚠️  Skipping $repo (directory not found)"
+    if [ ! -d "$repo" ]; then
+        echo "⚠️  Skipping update for $repo (directory not found)"
         continue
     fi
-    
-    echo ""
-    echo "📦 Processing: $repo"
-    echo "-----------------------------------"
-    
+
     # Determine remote and branch
     case "$repo" in
         "multiversx-mcp-server")          REMOTE="remote-mcp"; BRANCH="master" ;;
@@ -39,19 +37,29 @@ for repo in "${REPOS[@]}"; do
         *) echo "❌ Unknown remote for $repo"; continue ;;
     esac
 
-    # Git operations (run from root)
-    cd "$BASE_DIR"
-    echo "  ⬇️  Updating subtree from $REMOTE/$BRANCH..."
-    # Always pull with squash to keep history clean in the parent repo
+    echo "  ⬇️  Updating $repo from $REMOTE/$BRANCH..."
     git subtree pull --prefix="$repo" "$REMOTE" "$BRANCH" --squash -m "update subtree: $repo from $REMOTE/$BRANCH"
+done
 
-    # Go into directory for dependencies and build
+# --- Phase 2: Install and Build ---
+echo ""
+echo "🏗️  Phase 2: Installing dependencies and building..."
+
+for repo in "${REPOS[@]}"; do
+    REPO_PATH="$BASE_DIR/$repo"
+    
+    if [ ! -d "$REPO_PATH" ]; then
+        continue
+    fi
+    
+    echo ""
+    echo "📦 Processing: $repo"
+    echo "-----------------------------------"
     cd "$REPO_PATH"
     
-    # Skip install and build for mx-8004 and mx-agentic-commerce-tests (unless needed)
+    # Skip install and build for mx-8004 and mx-agentic-commerce-tests
     if [[ "$repo" == "mx-8004" || "$repo" == "mx-agentic-commerce-tests" ]]; then
-        echo "  ⏭️  Skipping install and build for $repo"
-        echo "  ✅ Done with $repo"
+        echo "  ⏭️  Skipping binary build for $repo"
         continue
     fi
 
@@ -66,9 +74,8 @@ for repo in "${REPOS[@]}"; do
     
     # Build
     if [ -f "package.json" ] && grep -q '"build"' package.json; then
-        echo "  🧹 Cleaning build output..."
+        echo "  🧹 Cleaning and Building..."
         rm -rf dist build
-        echo "  🔨 Building..."
         npm run build
     fi
     
@@ -83,26 +90,16 @@ echo "================================="
 cd "$BASE_DIR"
 
 # Stop all PM2 apps first
-echo "  🛑 Stopping PM2 apps..."
 pm2 stop ecosystem.config.js 2>/dev/null || true
-
-# Delete old processes
-echo "  🗑️  Deleting old PM2 processes..."
 pm2 delete ecosystem.config.js 2>/dev/null || true
 
-# Start dependencies first
-echo "  🚀 Starting dependency services..."
+# Start services
+echo "  🚀 Starting services..."
 pm2 start ecosystem.config.js --only mx-relayer,mx-mcp-server,x402-facilitator
-
-# Wait for services to be ready
-echo "  ⏳ Waiting 5 seconds for services to initialize..."
+echo "  ⏳ Waiting 5 seconds..."
 sleep 5
-
-# Start moltbot last
-echo "  🚀 Starting moltbot..."
 pm2 start ecosystem.config.js --only moltbot
 
-# Show status
 echo ""
 echo "================================="
 echo "📊 PM2 Status:"
