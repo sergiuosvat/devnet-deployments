@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
 import axios from 'axios';
+import * as crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { UserSigner } from '@multiversx/sdk-wallet';
@@ -58,11 +59,14 @@ async function monitorTx(
     throw new Error('Transaction monitoring timed out');
 }
 
-async function waitForJobVerification(jobId: string): Promise<void> {
+async function waitForJobStatus(
+    jobId: string,
+    expectedStatus: string,
+): Promise<void> {
     const registry = new Address(CONFIG.ADDRESSES.VALIDATION_REGISTRY);
     const maxRetries = 60;
 
-    log(`⏳ Waiting for bot to submit proof for job ${jobId}...`);
+    log(`⏳ Waiting for job status to become ${expectedStatus}...`);
 
     const entrypoint = new DevnetEntrypoint({ url: CONFIG.API_URL });
     const validationAbi = Abi.create(validationAbiJson);
@@ -79,12 +83,11 @@ async function waitForJobVerification(jobId: string): Promise<void> {
 
             if (results && results.length > 0 && results[0]) {
                 const jobData = results[0];
-                const hasProof = jobData.proof && jobData.proof.length > 0;
-                const isPending = jobData.status.name === 'Pending';
+                const currentStatus = jobData.status.name;
 
-                if (hasProof && isPending) {
+                if (currentStatus === expectedStatus) {
                     console.log('');
-                    log('✅ Job proof detected and status is Pending!');
+                    log(`✅ Job status is now ${currentStatus}!`);
                     return;
                 }
             }
@@ -94,7 +97,7 @@ async function waitForJobVerification(jobId: string): Promise<void> {
         await new Promise(r => setTimeout(r, 5000));
     }
     console.log('');
-    throw new Error('Job verification timed out');
+    throw new Error(`Wait for status ${expectedStatus} timed out`);
 }
 
 async function getAgentNonce(address: string): Promise<number> {
@@ -131,6 +134,98 @@ async function getAgentNonce(address: string): Promise<number> {
     }
 }
 
+async function requestValidation(
+    jobId: string,
+    validatorAddress: string,
+    provider: ApiNetworkProvider,
+    signer: UserSigner,
+): Promise<string> {
+    const registry = new Address(CONFIG.ADDRESSES.VALIDATION_REGISTRY);
+    const agentOwner = signer.getAddress();
+
+    log(`📡 Requesting validation from ${validatorAddress}...`);
+
+    const entrypoint = new DevnetEntrypoint({ url: CONFIG.API_URL });
+    const validationAbi = Abi.create(validationAbiJson);
+    const factory =
+        entrypoint.createSmartContractTransactionsFactory(validationAbi);
+
+    const account = await provider.getAccount({
+        bech32: () => agentOwner.bech32(),
+    });
+
+    const requestUri = Buffer.from('ipfs://request-details');
+    // Unique hash for this validation request
+    const requestHash = crypto
+        .createHash('sha256')
+        .update(jobId + validatorAddress + Date.now())
+        .digest();
+
+    const tx = await factory.createTransactionForExecute(new Address(agentOwner.bech32()), {
+        contract: registry,
+        function: 'validation_request',
+        arguments: [
+            Buffer.from(jobId, 'hex'),
+            new Address(validatorAddress),
+            requestUri,
+            requestHash,
+        ],
+        gasLimit: 10_000_000n,
+    });
+
+    tx.nonce = BigInt(account.nonce);
+    const computer = new TransactionComputer();
+    tx.signature = await signer.sign(computer.computeBytesForSigning(tx));
+
+    const txHash = await provider.sendTransaction(tx);
+    log(`✅ Validation requested! TxHash: ${txHash}`);
+    await monitorTx(txHash, provider);
+
+    return requestHash.toString('hex');
+}
+
+async function respondValidation(
+    requestHash: string,
+    score: number,
+    provider: ApiNetworkProvider,
+    signer: UserSigner,
+): Promise<void> {
+    const registry = new Address(CONFIG.ADDRESSES.VALIDATION_REGISTRY);
+    const validator = signer.getAddress();
+
+    log(`✍️ Validator ${validator.bech32()} responding with score ${score}...`);
+
+    const entrypoint = new DevnetEntrypoint({ url: CONFIG.API_URL });
+    const validationAbi = Abi.create(validationAbiJson);
+    const factory =
+        entrypoint.createSmartContractTransactionsFactory(validationAbi);
+
+    const account = await provider.getAccount({
+        bech32: () => validator.bech32(),
+    });
+
+    const tx = await factory.createTransactionForExecute(new Address(validator.bech32()), {
+        contract: registry,
+        function: 'validation_response',
+        arguments: [
+            Buffer.from(requestHash, 'hex'),
+            score,
+            Buffer.from('ipfs://response-details'),
+            crypto.randomBytes(32), // response_hash
+            Buffer.from('tag-verified'),
+        ],
+        gasLimit: 10_000_000n,
+    });
+
+    tx.nonce = BigInt(account.nonce);
+    const computer = new TransactionComputer();
+    tx.signature = await signer.sign(computer.computeBytesForSigning(tx));
+
+    const txHash = await provider.sendTransaction(tx);
+    log(`✅ Validation response submitted! TxHash: ${txHash}`);
+    await monitorTx(txHash, provider);
+}
+
 async function submitReputation(
     jobId: string,
     agentNonce: number,
@@ -145,14 +240,19 @@ async function submitReputation(
 
     const entrypoint = new DevnetEntrypoint({ url: CONFIG.API_URL });
     const reputationAbi = Abi.create(reputationAbiJson);
-    const factory = entrypoint.createSmartContractTransactionsFactory(reputationAbi);
+    const factory =
+        entrypoint.createSmartContractTransactionsFactory(reputationAbi);
 
     const account = await provider.getAccount({ bech32: () => sender });
 
     const tx = await factory.createTransactionForExecute(senderAddr, {
         contract: registry,
         function: 'giveFeedbackSimple',
-        arguments: [Buffer.from(jobId, 'hex'), BigInt(agentNonce), BigInt(rating)],
+        arguments: [
+            Buffer.from(jobId, 'hex'),
+            BigInt(agentNonce),
+            BigInt(rating),
+        ],
         gasLimit: 10_000_000n,
     });
 
@@ -257,9 +357,32 @@ async function main() {
     log('💰 Payment settled. Bot should now pick up the job.');
 
     // 4. Wait for Proof
-    await waitForJobVerification(preparation.jobId);
+    await waitForJobStatus(preparation.jobId, 'Pending');
 
-    // 5. Submit Review
+    // 5. Validation Flow (ERC-8004)
+    console.log('\n--- ERC-8004 VALIDATION ---');
+    // Agent owner requests validation
+    const requestHash = await requestValidation(
+        preparation.jobId,
+        employerAddr, // Grace will be the validator
+        provider,
+        workerSigner, // Bot owner
+    );
+
+    await waitForJobStatus(preparation.jobId, 'ValidationRequested');
+
+    // Validator responds
+    const randomScore = Math.floor(Math.random() * (100 - 80 + 1)) + 80;
+    await respondValidation(
+        requestHash,
+        randomScore,
+        provider,
+        signer, // Grace
+    );
+
+    await waitForJobStatus(preparation.jobId, 'Verified');
+
+    // 6. Submit Review
     const randomRating = Math.floor(Math.random() * (100 - 80 + 1)) + 80;
     await submitReputation(
         preparation.jobId,
