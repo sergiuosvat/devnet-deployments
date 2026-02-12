@@ -1,0 +1,8 @@
+target/
+.DS_Store
+**/*.pem
+wallet.json
+mx-chain-simulator-go
+*.log
+*.db
+*.txt
