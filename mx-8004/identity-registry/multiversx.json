@@ -1,0 +1,6 @@
+    "language": "rust",
+    "contracts": {
+        "identity-registry": {
+            "name": "identity-registry"
+        }
+    }
