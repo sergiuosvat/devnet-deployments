@@ -1,0 +1,59 @@
+{
+    "marketplaces": [
+        {
+            "name": "xExchange",
+            "contracts": [
+                "erd1..."
+            ],
+            "trust_level": "official"
+        },
+        {
+            "name": "FrameIt",
+            "contracts": [
+                "erd1..."
+            ],
+            "trust_level": "verified"
+        }
+    ],
+    "contracts_config": {
+        "default": {
+            "address": "erd1qqqqqqqqqqqqqpgq...",
+            "abi": {
+                "function": "buy",
+                "args_order": [
+                    "token_identifier",
+                    "nonce",
+                    "quantity"
+                ]
+            }
+        },
+        "xoxno": {
+            "address": "erd1lp3hkcsqcprmvm6sr7a92zcgxyl3hfyqge5zem232j9axvmnr8esrj8shs",
+            "abi": {
+                "function": "buy",
+                "args_order": [
+                    "token_identifier",
+                    "nonce",
+                    "quantity"
+                ]
+            }
+        },
+        "oox": {
+            "address": "erd1ooxplaceholder...",
+            "abi": {
+                "function": "buyNft",
+                "args_order": [
+                    "token_identifier",
+                    "nonce",
+                    "quantity"
+                ]
+            }
+        }
+    },
+    "registry_config": {
+        "identity": "erd1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6gq4hu",
+        "reputation": "erd1qyu5wgts7fp92az5y2yuqlsq0zy7gu3g5pcsq7yfu3ez3gr3qpuq00xjqv",
+        "validation": "erd1qyu5wgts7fp92az5y2yuqlsq0zy7gu3g5pcsq7yfu3ez3gr3qpuq00xjqv"
+    },
+    "api_url": "https://api.multiversx.com"
+}
