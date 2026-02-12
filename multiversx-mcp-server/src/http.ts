@@ -13,11 +13,13 @@ interface ProductItem {
     price: string;
 }
 
+import { getBalance, queryAccount, getAgentReputation } from "./tools/index";
+
 export function createHttpServer() {
     const fastify = Fastify({ logger: false });
 
+    // Existing feed handlers...
     const feedHandler = async (_request: FastifyRequest, _reply: FastifyReply) => {
-        // 1. Fetch products from all whitelisted collections
         const whitelist = loadWhitelist();
         const allProducts: ProductItem[] = [];
 
@@ -31,7 +33,6 @@ export function createHttpServer() {
             }
         }
 
-        // 2. Map to Google Merchant Center Feed Schema (JSON)
         const feedItems = allProducts.map((p: ProductItem) => ({
             id: p.id,
             title: p.name,
@@ -59,6 +60,18 @@ export function createHttpServer() {
 
     fastify.get("/health", async () => {
         return { status: "ok", service: "multiversx-mcp-server-http" };
+    });
+
+    // --- New REST Endpoints for Moltbot and Skills ---
+
+    fastify.get("/accounts/:address/balance", async (request: any) => {
+        const { address } = request.params;
+        const trimmedAddress = address.trim();
+        console.log(`[HTTP] getBalance for: "${trimmedAddress}" (original: "${address}")`);
+        const result = await getBalance(trimmedAddress);
+        const text = result.content[0].type === 'text' ? result.content[0].text : '';
+        const match = text.match(/is ([\d.]+) EGLD/);
+        return { balance: match ? match[1] : "0", raw: text };
     });
 
     return fastify;

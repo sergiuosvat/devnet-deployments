@@ -8,10 +8,11 @@ const fastify_1 = __importDefault(require("fastify"));
 const searchProducts_1 = require("./tools/searchProducts");
 const whitelistRegistry_1 = require("./utils/whitelistRegistry");
 const manifest_1 = require("./ucp/manifest");
+const index_1 = require("./tools/index");
 function createHttpServer() {
     const fastify = (0, fastify_1.default)({ logger: false });
+    // Existing feed handlers...
     const feedHandler = async (_request, _reply) => {
-        // 1. Fetch products from all whitelisted collections
         const whitelist = (0, whitelistRegistry_1.loadWhitelist)();
         const allProducts = [];
         for (const collectionId of whitelist) {
@@ -24,7 +25,6 @@ function createHttpServer() {
                 console.error(`Error fetching products for ${collectionId}:`, e);
             }
         }
-        // 2. Map to Google Merchant Center Feed Schema (JSON)
         const feedItems = allProducts.map((p) => ({
             id: p.id,
             title: p.name,
@@ -48,6 +48,16 @@ function createHttpServer() {
     });
     fastify.get("/health", async () => {
         return { status: "ok", service: "multiversx-mcp-server-http" };
+    });
+    // --- New REST Endpoints for Moltbot and Skills ---
+    fastify.get("/accounts/:address/balance", async (request) => {
+        const { address } = request.params;
+        const trimmedAddress = address.trim();
+        console.log(`[HTTP] getBalance for: "${trimmedAddress}" (original: "${address}")`);
+        const result = await (0, index_1.getBalance)(trimmedAddress);
+        const text = result.content[0].type === 'text' ? result.content[0].text : '';
+        const match = text.match(/is ([\d.]+) EGLD/);
+        return { balance: match ? match[1] : "0", raw: text };
     });
     return fastify;
 }
