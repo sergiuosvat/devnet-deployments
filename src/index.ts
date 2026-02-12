@@ -1,0 +1,167 @@
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { Verifier } from './services/verifier.js';
+import { Settler } from './services/settler.js';
+import { CleanupService } from './services/cleanup.js';
+import { JsonSettlementStorage } from './storage/json.js';
+import { SqliteSettlementStorage } from './storage/sqlite.js';
+import { VerifyRequestSchema, SettleRequestSchema } from './domain/schemas.js';
+import { ISettlementRecord, ISettlementStorage } from './domain/storage.js';
+import { ProxyNetworkProvider } from '@multiversx/sdk-network-providers';
+import { config } from './config.js';
+import fs from 'fs';
+import path from 'path';
+import { pino } from 'pino';
+import { RelayerManager } from './services/relayer_manager.js';
+import { Architect } from './services/architect.js';
+import { PrepareRequestSchema } from './domain/schemas.js';
+
+const logger = pino({
+    level: config.logLevel,
+});
+
+import { INetworkProvider } from './domain/network.js';
+
+export function createServer(dependencies: {
+    provider: INetworkProvider,
+    storage: ISettlementStorage,
+    relayerManager?: RelayerManager
+}) {
+    const { provider, storage, relayerManager } = dependencies;
+    const app = express();
+    app.use(helmet());
+    app.use(rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 100,
+        standardHeaders: true,
+        legacyHeaders: false,
+    }));
+    app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+    app.use(express.json());
+
+    const settler = new Settler(storage, provider, relayerManager);
+    const cleanupService = new CleanupService(storage);
+    cleanupService.start();
+
+    app.get('/health', (req: Request, res: Response) => {
+        res.json({ status: 'ok' });
+    });
+
+    app.post('/verify', async (req: Request, res: Response) => {
+        try {
+            const validated = VerifyRequestSchema.parse(req.body);
+            const result = await Verifier.verify(validated.payload, validated.requirements, provider, relayerManager);
+            res.json(result);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.warn({ error: message, body: req.body }, 'Verify request failed');
+            res.status(400).json({ error: message });
+        }
+    });
+
+    app.post('/prepare', async (req: Request, res: Response) => {
+        try {
+            const validated = PrepareRequestSchema.parse(req.body);
+            const result = await Architect.prepare(validated);
+            res.json(result);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.warn({ error: message, body: req.body }, 'Prepare request failed');
+            res.status(400).json({ error: message });
+        }
+    });
+
+    app.post('/settle', async (req: Request, res: Response) => {
+        try {
+            const validated = SettleRequestSchema.parse(req.body);
+            await Verifier.verify(validated.payload, validated.requirements, provider, relayerManager);
+            const result = await settler.settle(validated.payload);
+            res.json(result);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.warn({ error: message, body: req.body }, 'Settle request failed');
+            res.status(400).json({ error: message });
+        }
+    });
+
+    // Relayer Address Endpoint (for Caching support)
+    app.get('/relayer/address/:userAddress', (req: Request, res: Response) => {
+        const { userAddress } = req.params;
+        try {
+            if (!relayerManager) {
+                res.status(503).json({ error: 'Relayer functionality disabled' });
+                return;
+            }
+            const relayerAddress = relayerManager.getRelayerAddressForUser(userAddress);
+            res.json({ relayerAddress });
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.warn({ error: message, userAddress }, 'Failed to get relayer address');
+            res.status(404).json({ error: message });
+        }
+    });
+
+    // Event Polling (Simple Implementation)
+    app.get('/events', async (req: Request, res: Response) => {
+        try {
+            const unread = await storage.getUnread();
+
+            const events = unread.map((r: ISettlementRecord) => ({
+                amount: r.amount || '0',
+                token: r.token || 'EGLD',
+                meta: {
+                    jobId: r.jobId || r.id,
+                    payload: r.id,
+                    sender: r.payer,
+                    txHash: r.txHash
+                }
+            }));
+
+            if (req.query.unread === 'true' && unread.length > 0) {
+                await storage.markAsRead(unread.map((r: ISettlementRecord) => r.id));
+            }
+
+            res.json(events);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error({ error: message }, 'Events poll failed');
+            res.status(500).json({ error: message });
+        }
+    });
+
+    return app;
+}
+
+async function start() {
+    const provider = new ProxyNetworkProvider(config.networkProvider);
+
+    let storage: ISettlementStorage;
+    if (config.storageType === 'sqlite') {
+        logger.info({ path: config.sqliteDbPath }, 'Using SQLite storage');
+        const sqliteStorage = new SqliteSettlementStorage(config.sqliteDbPath);
+        await sqliteStorage.init();
+        storage = sqliteStorage;
+    } else {
+        const dataDir = './data';
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir);
+        }
+        const jsonPath = path.join(dataDir, 'settlements.json');
+        logger.info({ path: jsonPath }, 'Using JSON storage');
+        storage = new JsonSettlementStorage(jsonPath);
+    }
+
+    const relayerManager = new RelayerManager(config.relayerWalletsDir, config.relayerPemPath);
+
+    const app = createServer({ provider, storage, relayerManager });
+    app.listen(config.port, () => {
+        logger.info({ port: config.port, network: config.networkProvider }, 'x402 Facilitator started');
+    });
+}
+
+start().catch(err => {
+    logger.error({ error: err.message }, 'Failed to start server');
+    process.exit(1);
+});
