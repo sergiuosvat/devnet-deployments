@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+*.pem
+wallets/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+coverage/
